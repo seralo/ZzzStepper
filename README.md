@@ -1,4 +1,4 @@
-# ZzzMovingAvg
+# ZzzStepper
 Simple Arduino / C++ library to control stepper motor
 
 
@@ -17,19 +17,19 @@ ZzzStepper <DRIVER> stepper(stepsPerTurn,rpm=60,stepsPerMm=0); //Constructor nee
 ### Functions
 
 ```cpp
-void go(clockwise=true)  // Turn until stop (async function need to call update() frequently)
-void update()            // To call in Arduino loop
-void stop()              // Stop the stepper motor
+void go(clockwise=true);  // Turn until stop (async function need to call update() frequently)
+void update();            // To call in Arduino loop
+void stop();              // Stop the stepper motor
 
-void step(steps=1, endActionCallback=null) // Number of steps to perform. Steps can be negative to go backward.
-void turn(steps=1, endActionCallback=null) // Number of full turn to perform. Turns can be negative to go backward.
+void step(steps=1, endActionCallback=null); // Number of steps to perform. Steps can be negative to go backward.
+void turn(steps=1, endActionCallback=null); // Number of full turn to perform. Turns can be negative to go backward.
 
-void goMs(ms, clockwise=true, endActionCallback=null) // Turn motor for given milliseconds
+void goMs(ms, clockwise=true, endActionCallback=null); // Turn motor for given milliseconds
 
-void travelMm(mm=1, endActionCallback=null) // Number of millimeters to travel. mm can be negative to go backward. (stepsPerMm need to be correct during constructor initialization or using setStepsPerMm())
+void travelMm(mm=1, endActionCallback=null); // Number of millimeters to travel. mm can be negative to go backward. (stepsPerMm need to be correct during constructor initialization or using setStepsPerMm())
 
-void setStepsPerMm(stepsPerMm) // Set number of steps to travel 1mm
-void setSpeed(rpm)             // Set rotation speed per minute (RPM) Driver will adjust to best suitable RPM to avoid motor damage.
+void setStepsPerMm(stepsPerMm); // Set number of steps to travel 1mm
+void setSpeed(rpm);             // Set rotation speed per minute (RPM) Driver will adjust to best suitable RPM to avoid motor damage.
 
 ```
 
