@@ -1,0 +1,13 @@
+{
+  "name": "ZzzStepper",
+  "keywords": "stepper",
+  "description": "Simple Arduino / C++ library to manage stepper motor",
+  "authors": {
+    "name": "Seralo",
+    "email": "seralo@free.fr",
+    "url": "https://github.com/seralo/ZzzStepper"
+  },
+  "version": "1.0.0",
+  "frameworks": "arduino",
+  "platforms": "*"
+}
