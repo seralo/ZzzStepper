@@ -51,7 +51,12 @@ typedef ZzzStepperMode<4, 4,  1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1 > ZzzStepper
 typedef ZzzStepperMode<4, 8,  1,0,0,0,  1,1,0,0,  0,1,0,0,  0,1,1,0,  0,0,1,0,  0,0,1,1,  0,0,0,1,  1,0,0,1 > ZzzStepperMode4PinsHalf;
 
 
-template <int PIN1, int PIN2, int PIN3, int PIN4, typename MODE=ZzzStepperMode4PinsHalf> class ZzzStepperDriver4Pins {
+/**
+ * PIN1-4 specify the pins to control
+ * MIN_US, MAX_US parameters allow limiting ste duration in microseconds to avoid motor damage (28BYJ-48 stepper motor 600 - 1465 microseconds)
+ * MODE allow to change Wave or Half step driving
+ */
+template <int PIN1, int PIN2, int PIN3, int PIN4, unsigned long MIN_US=800, unsigned long MAX_US=1400, typename MODE=ZzzStepperMode4PinsHalf> class ZzzStepperDriver4Pins {
 	protected:
 		MODE _mode;
 	public:
@@ -62,6 +67,19 @@ template <int PIN1, int PIN2, int PIN3, int PIN4, typename MODE=ZzzStepperMode4P
 			pinMode(PIN4, OUTPUT);
 		}
 
+		/** Return the step duration in microseconds to achieve given RPM. Return closest value to avoid motor damage. */
+		unsigned long getStepUs(unsigned int rpm, int stepsPerTurn) {
+			//1 min = 60 s per 1000 ms per 1000 us
+			unsigned long d = (60 * 1000 * 1000) / (stepsPerTurn * rpm);
+			if (d<MIN_US) {
+				d=MIN_US;
+			}
+			if (d>MAX_US) {
+				d=MAX_US;
+			}
+			return d;
+		}
+		
 		/** Send stop command to stepper */
 		void stop(bool force=false) {
 			if (force) {
@@ -79,13 +97,6 @@ template <int PIN1, int PIN2, int PIN3, int PIN4, typename MODE=ZzzStepperMode4P
 			_mode.nextStep( cw );
 			pValues=_mode.pinStates();
 
-			/*Serial.print("updatePins:");
-			Serial.print(PIN1); Serial.print("="); Serial.print(pValues[0]); Serial.print(" ");
-			Serial.print(PIN2); Serial.print("="); Serial.print(pValues[1]); Serial.print(" ");
-			Serial.print(PIN3); Serial.print("="); Serial.print(pValues[2]); Serial.print(" ");
-			Serial.print(PIN4); Serial.print("="); Serial.print(pValues[3]); Serial.print(" ");
-			Serial.println();*/
-			
 			digitalWrite(PIN1, pValues[0]);
 			digitalWrite(PIN2, pValues[1]);
 			digitalWrite(PIN3, pValues[2]);
@@ -97,7 +108,7 @@ template <int PIN1, int PIN2, int PIN3, int PIN4, typename MODE=ZzzStepperMode4P
 
 /**
  * Template class to manage a stepper motor. The template need a Driver parameter to control the stepper.
- * The driver class must implement stop(bool force) and nextStep(bool cw).
+ * The driver class must implement stop(bool force), nextStep(bool cw) and getStepUs(rpm, stepsPerTurn).
  */
 template <typename DRIVER> class ZzzStepper {
 	protected:
@@ -149,7 +160,7 @@ template <typename DRIVER> class ZzzStepper {
 			_state=STATE_STOP;
 		}
 
-		/** To call in Arduino loop for async methods */
+		/** To call frequently (ie: in Arduino loop) */
 		void update() {
 			if (_state==STATE_STOP) {
 				return; //nothing to do
@@ -174,12 +185,12 @@ template <typename DRIVER> class ZzzStepper {
 			}
 		}
 
-		/** Set rotation speed per minute (RPM) */
-		void setSpeed(int rpm) {
-			_stepTimeUs=1000; //TODO compute
+		/** Set rotation speed per minute (RPM). Driver will adjust to best suitable RPM to avoid motor damage. */
+		void setSpeed(unsigned int rpm) {
+			_stepTimeUs=_driver.getStepUs(rpm, _stepsPerTurn);
 		}
 		
-		/** Set number of steps to perform to travel 1mm (useful in combination with ) */
+		/** Set number of steps to travel 1mm (useful in combination with goMm()) */
 		void setStepsPerMm(int stepsPerMm) {
 			_stepsPerMm=stepsPerMm;
 		}
@@ -212,7 +223,7 @@ template <typename DRIVER> class ZzzStepper {
 		 * Number of millimeters to travel (async function need to call update() frequently)
 		 * @turns the number of millimeters to travel - positive to travel one direction, negative to travel the other
 		 */
-		void goMm(long mm, ZzzStepperCallback endActionCallback=nullptr) {
+		void travelMm(long mm=1, ZzzStepperCallback endActionCallback=nullptr) {
 			step(mm*_stepsPerMm, endActionCallback);
 		}
 
@@ -223,15 +234,15 @@ template <typename DRIVER> class ZzzStepper {
 			_state=(cw ? STATE_CW : STATE_CCW) | STATE_GO_TIME;
 			_endActionCallback=endActionCallback;
 		}
-				
+
 		/** Constructor */
-		ZzzStepper(int stepsPerTurn, int stepsPerMm=0) {
+		ZzzStepper(int stepsPerTurn, int rpm=15, int stepsPerMm=0) {
 			_state=STATE_STOP;
 			_stepsPerTurn=stepsPerTurn;
 			if (stepsPerMm<=0) {
 				_stepsPerMm=stepsPerTurn;
-			}
-			_stepTimeUs=1500; //NOTE max 1000 ?
+			}			
+			setSpeed(rpm);
 		}
 };
 

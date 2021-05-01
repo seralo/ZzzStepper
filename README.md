@@ -1,84 +1,65 @@
 # ZzzMovingAvg
-Simple Arduino / C++ library to compute moving average
+Simple Arduino / C++ library to control stepper motor
 
 
-The library consist of a single header file (ZzzMovingAvg.h) containing a template class.
-
-The template has 3 parameters
- * N     is the number of values to smooth the data (default=4). Could be a power of 2 (2,4,8,16,32...) to optimize computation at compile time.
- * T     is the type of data (default=int). Could be uint8_t, int8_t, uint16_t, int, float...
- * TSUM  is the type of the sum (default=long). Should be able to contain N*data without overflowing. if N is 8 and values could go up to 100, then T could be uint8_t (max=255) and TSUM should at least be uint16_t (max=65535).
+The library consist of a single header file (ZzzStepper.h) containing template classes.
 
 
 ### Constructor
 
 ```cpp
 
-ZzzMovingAvg <> avg; //Constructor with default template parameters 4, int, long
+ZzzStepper <DRIVER> stepper(stepsPerTurn,rpm=60,stepsPerMm=0); //Constructor need a driver class as template param
 
-ZzzMovingAvg <4, uint8_t> avg; //Constructor with 4 values, and uint8_t as data type.
-
-ZzzMovingAvg <16, float, float> avg; //Constructor with 16 values, and float as data type
 
 ```
 
 ### Functions
 
 ```cpp
-T add()                // Add a new value to the moving average
-T get()                // Get the current moving average value (same as the last add return value)
-T last(size_t back=0)  // Get raw value added previously. No param will get the last added value. 1 will get the previous added value... up to size()-1.
-size_t size()          // Return the number of values used for the moving average, or the number of value it could get using last()
-void reset()                // Reset the average values
-void fill()                 // Fill the buffer with all identical values
+void go(clockwise=true)  // Turn until stop (async function need to call update() frequently)
+void update()            // To call in Arduino loop
+void stop()              // Stop the stepper motor
+
+void step(steps=1, endActionCallback=null) // Number of steps to perform. Steps can be negative to go backward.
+void turn(steps=1, endActionCallback=null) // Number of full turn to perform. Turns can be negative to go backward.
+
+void goMs(ms, clockwise=true, endActionCallback=null) // Turn motor for given milliseconds
+
+void travelMm(mm=1, endActionCallback=null) // Number of millimeters to travel. mm can be negative to go backward. (stepsPerMm need to be correct during constructor initialization or using setStepsPerMm())
+
+void setStepsPerMm(stepsPerMm) // Set number of steps to travel 1mm
+void setSpeed(rpm)             // Set rotation speed per minute (RPM) Driver will adjust to best suitable RPM to avoid motor damage.
+
 ```
 
 ### Included examples
 
-- `AvgBasic/AvgBasic.ino` - Show basic usage with static data
-- `AvgGraph/AvgGraph.ino` - Demonstrates smoothing of moving average algorithms depending on number of data.
+- `StepperBasic/StepperBasic.ino` - Show basic usage counting turns and changing rotation direction every full turn
 
 
-### Simple code example for 4 int values
+### Simple code example for 28BYJ-48 stepper motor using ULN2003 driver board 
 
 ```cpp
-#include <ZzzMovingAvg.h>
+#include <ZzzStepper.h>
 
-ZzzMovingAvg <4> avg;
+//ULN2003 use 4 pins connected here to PIN 16, PIN 17, PIN 25, PIN 26
+//28BYJ-48 stepper motor needs 4096 steps to make one full turn in Half step mode
+ZzzStepper < ZzzStepperDriver4Pins<16,17,25,26> > stepper(4096);
 
 void setup()
 {
     ...
+    stepper.go();
 }
 
 void loop()
 {
     ...
 
-    int avgSensorValue = avg.add(mySensorValue);
+    stepper.update();
 
     ...
 }
 ```
 
-### Simple code example for 16 float values
-
-```cpp
-#include <ZzzMovingAvg.h>
-
-ZzzMovingAvg <16, float, float> avg;
-
-void setup()
-{
-    ...
-}
-
-void loop()
-{
-    ...
-
-    float avgSensorValue = avg.add(mySensorValue);
-
-    ...
-}
-```
