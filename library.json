@@ -1,6 +1,6 @@
 {
   "name": "ZzzStepper",
-  "keywords": "stepper",
+  "keywords": "stepper, motor",
   "description": "Simple Arduino / C++ library to manage stepper motor",
   "authors": {
     "name": "Seralo",

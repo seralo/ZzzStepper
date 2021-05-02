@@ -31,6 +31,7 @@ void travelMm(mm=1, endActionCallback=null); // Number of millimeters to travel.
 void setStepsPerMm(stepsPerMm); // Set number of steps to travel 1mm
 void setSpeed(rpm);             // Set rotation speed per minute (RPM) Driver will adjust to best suitable RPM to avoid motor damage.
 
+bool isRunning();               // Is the stepper motor running (not stopped)
 ```
 
 ### Included examples

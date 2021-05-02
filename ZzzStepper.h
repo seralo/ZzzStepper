@@ -7,37 +7,37 @@
 typedef void(*ZzzStepperCallback)();
 
 
-template <size_t NBPINS, size_t NBSTEPS, int ... STEPS> class ZzzStepperMode {
+template <size_t NB_PINS, size_t NB_STEPS, int ... STEPS> class ZzzStepperMode {
 	protected:
 		/** Current step */
 		int _curStep=0;
-		const int pSteps[NBSTEPS*NBPINS]={STEPS...};
+		const int pSteps[NB_STEPS*NB_PINS]={STEPS...};
 	public:
 		int getSteps() {
-			return NBSTEPS;
+			return NB_STEPS;
 		}
 
 		int getPins() {
-			return NBPINS;
+			return NB_PINS;
 		}
 
 		/**
 		 * @return pointer to an array of values contains at least NBPINS values
 		 */
 		const int* pinStates() {
-			return &(pSteps[_curStep*NBPINS]);
+			return &(pSteps[_curStep*NB_PINS]);
 		}
 		
 		int nextStep(bool cw=true) {
 			if (cw) {
 				_curStep++;
-				if (_curStep>=NBSTEPS) {
+				if (_curStep>=NB_STEPS) {
 					_curStep=0;
 				}
 			} else {
 				_curStep--;
 				if (_curStep<0) {
-					_curStep=NBSTEPS-1;
+					_curStep=NB_STEPS-1;
 				}
 			}
 			return _curStep;
@@ -158,6 +158,11 @@ template <typename DRIVER> class ZzzStepper {
 				_driver.stop(true);
 			}
 			_state=STATE_STOP;
+		}
+
+		/** Is the stepper motor running (not stopped) */
+		bool isRunning() {
+			return (_state!=STATE_STOP);
 		}
 
 		/** To call frequently (ie: in Arduino loop) */
