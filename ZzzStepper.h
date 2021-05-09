@@ -4,31 +4,44 @@
 #ifndef ZZZ_STEPPER_H
 #define ZZZ_STEPPER_H
 
+#define ZZZ_DEFAULT_PCF8574_ADDRESS   0x20
+#define ZZZ_DEFAULT_PCF8574A_ADDRESS  0x38
+
 typedef void(*ZzzStepperCallback)();
 
+/** Abstract stepper driver. Class to override to implement a new stepper driver */
+class ZzzStepperDriver {
+	protected:
+		ZzzStepperDriver() {
+		}
+	public:
+		/** Return the step duration in microseconds to achieve given RPM. Return closest value to avoid motor damage. */
+		virtual unsigned long getStepUs(unsigned int rpm, int stepsPerTurn) const;
 
-template <size_t NB_PINS, size_t NB_STEPS, int ... STEPS> class ZzzStepperMode {
+		/** Send stop command to stepper */
+		virtual bool stop(bool force=false);
+		
+		/** Ask stepper to go next step or previous step depending on clockwise */
+		virtual bool nextStep(bool cw);
+};
+
+
+template <size_t NB_PINS, uint8_t ... STEPS> class ZzzStepperSteps {
 	protected:
 		/** Current step */
-		int _curStep=0;
-		const int pSteps[NB_STEPS*NB_PINS]={STEPS...};
+		size_t _curStep=0;
+		const uint8_t pSteps[sizeof...(STEPS)]={STEPS...};
+		const int NB_STEPS=(sizeof...(STEPS));
 	public:
-		int getSteps() {
-			return NB_STEPS;
-		}
-
-		int getPins() {
+		size_t getPins() const {
 			return NB_PINS;
 		}
 
-		/**
-		 * @return pointer to an array of values contains at least NBPINS values
-		 */
-		const int* pinStates() {
-			return &(pSteps[_curStep*NB_PINS]);
+		size_t getSteps() const {
+			return NB_STEPS;
 		}
 		
-		int nextStep(bool cw=true) {
+		uint8_t nextStep(bool cw=true) {
 			if (cw) {
 				_curStep++;
 				if (_curStep>=NB_STEPS) {
@@ -40,15 +53,14 @@ template <size_t NB_PINS, size_t NB_STEPS, int ... STEPS> class ZzzStepperMode {
 					_curStep=NB_STEPS-1;
 				}
 			}
-			return _curStep;
+			return pSteps[_curStep];
 		}
 };
 
-
 /** Wave driver: Use less steps only one magnet at a time => lower consumption but less torque */
-typedef ZzzStepperMode<4, 4,  1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1 > ZzzStepperMode4PinsWave;
+typedef ZzzStepperSteps<4, 0b0001, 0b0010, 0b0100, 0b1000 > ZzzStepperSteps4PinsWave;
 /** Half step driver: More steps, more precise movements */
-typedef ZzzStepperMode<4, 8,  1,0,0,0,  1,1,0,0,  0,1,0,0,  0,1,1,0,  0,0,1,0,  0,0,1,1,  0,0,0,1,  1,0,0,1 > ZzzStepperMode4PinsHalf;
+typedef ZzzStepperSteps<4, 0b0001, 0b0011, 0b0010, 0b0110, 0b0100, 0b1100, 0b1000, 0b1001 > ZzzStepperSteps4PinsHalf;
 
 
 /**
@@ -56,9 +68,9 @@ typedef ZzzStepperMode<4, 8,  1,0,0,0,  1,1,0,0,  0,1,0,0,  0,1,1,0,  0,0,1,0,  
  * MIN_US, MAX_US parameters allow limiting ste duration in microseconds to avoid motor damage (28BYJ-48 stepper motor 600 - 1465 microseconds)
  * MODE allow to change Wave or Half step driving
  */
-template <int PIN1, int PIN2, int PIN3, int PIN4, unsigned long MIN_US=800, unsigned long MAX_US=1400, typename MODE=ZzzStepperMode4PinsHalf> class ZzzStepperDriver4Pins {
+template <int PIN1, int PIN2, int PIN3, int PIN4, unsigned long MIN_US=800, unsigned long MAX_US=1400, typename STEPS=ZzzStepperSteps4PinsHalf> class ZzzStepperDriver4Pins : public ZzzStepperDriver {
 	protected:
-		MODE _mode;
+		STEPS _steps;
 	public:
 		ZzzStepperDriver4Pins() {
 			pinMode(PIN1, OUTPUT);
@@ -68,7 +80,7 @@ template <int PIN1, int PIN2, int PIN3, int PIN4, unsigned long MIN_US=800, unsi
 		}
 
 		/** Return the step duration in microseconds to achieve given RPM. Return closest value to avoid motor damage. */
-		unsigned long getStepUs(unsigned int rpm, int stepsPerTurn) {
+		virtual unsigned long getStepUs(unsigned int rpm, int stepsPerTurn) const override {
 			//1 min = 60 s per 1000 ms per 1000 us
 			unsigned long d = (60 * 1000 * 1000) / (stepsPerTurn * rpm);
 			if (d<MIN_US) {
@@ -81,26 +93,82 @@ template <int PIN1, int PIN2, int PIN3, int PIN4, unsigned long MIN_US=800, unsi
 		}
 		
 		/** Send stop command to stepper */
-		void stop(bool force=false) {
+		virtual bool stop(bool force=false) override {
 			if (force) {
 				digitalWrite(PIN1, 0);
 				digitalWrite(PIN2, 0);
 				digitalWrite(PIN3, 0);
 				digitalWrite(PIN4, 0);
 			}
+			return true;
 		}
 
 		/** Ask stepper to go next step or previous step depending on clockwise */
-		void nextStep(bool cw) {
-			const int *pValues;
+		virtual bool nextStep(bool cw) override {
+			uint8_t stepState;
+			stepState=_steps.nextStep( cw );
 
-			_mode.nextStep( cw );
-			pValues=_mode.pinStates();
+			digitalWrite(PIN1, (stepState & 0b0001)!=0 ? HIGH : LOW);
+			digitalWrite(PIN2, (stepState & 0b0010)!=0 ? HIGH : LOW);
+			digitalWrite(PIN3, (stepState & 0b0100)!=0 ? HIGH : LOW);
+			digitalWrite(PIN4, (stepState & 0b1000)!=0 ? HIGH : LOW);
+			return true;
+		}
+};
 
-			digitalWrite(PIN1, pValues[0]);
-			digitalWrite(PIN2, pValues[1]);
-			digitalWrite(PIN3, pValues[2]);
-			digitalWrite(PIN4, pValues[3]);
+
+template <typename WIRE, uint8_t ADDRESS=ZZZ_DEFAULT_PCF8574_ADDRESS, unsigned long MIN_US=800, unsigned long MAX_US=1400, typename STEPS=ZzzStepperSteps4PinsHalf> class ZzzStepperDriverI2CPCF8574 : public ZzzStepperDriver {
+	protected:
+		STEPS _steps;
+		WIRE *_pWire;
+	public:
+		ZzzStepperDriverI2CPCF8574(void* pParams) {
+			_pWire=(WIRE*)pParams;
+			_pWire->begin();
+
+			_pWire->beginTransmission(ADDRESS);
+  			_pWire->write(0);
+ 			if (_pWire->endTransmission() != 0) { //communication error
+ 				return;
+			}
+		}
+
+		/** Return the step duration in microseconds to achieve given RPM. Return closest value to avoid motor damage. */
+		virtual unsigned long getStepUs(unsigned int rpm, int stepsPerTurn) const override {
+			//1 min = 60 s per 1000 ms per 1000 us
+			unsigned long d = (60 * 1000 * 1000) / (stepsPerTurn * rpm);
+			if (d<MIN_US) {
+				d=MIN_US;
+			}
+			if (d>MAX_US) {
+				d=MAX_US;
+			}
+			return d;
+		}
+		
+		/** Send stop command to stepper */
+		virtual bool stop(bool force=false) override {
+			if (force) {
+				_pWire->beginTransmission(ADDRESS);
+	  			_pWire->write(0);
+	 			if (_pWire->endTransmission() != 0) { //communication error
+	 				return false;
+				}
+			}
+			return true;
+		}
+
+		/** Ask stepper to go next step or previous step depending on clockwise */
+		virtual bool nextStep(bool cw) override {
+			uint8_t stepState;
+
+			stepState=_steps.nextStep( cw );
+			_pWire->beginTransmission(ADDRESS);
+	  		_pWire->write(stepState);
+	 		if (_pWire->endTransmission() != 0) { //communication error
+	 			return false;
+			}
+			return true;
 		}
 };
 
@@ -110,7 +178,7 @@ template <int PIN1, int PIN2, int PIN3, int PIN4, unsigned long MIN_US=800, unsi
  * Template class to manage a stepper motor. The template need a Driver parameter to control the stepper.
  * The driver class must implement stop(bool force), nextStep(bool cw) and getStepUs(rpm, stepsPerTurn).
  */
-template <typename DRIVER> class ZzzStepper {
+class ZzzStepper {
 	protected:
 		/** Stop state: all flags set */
 		static const int STATE_STOP=-1;
@@ -138,13 +206,13 @@ template <typename DRIVER> class ZzzStepper {
 		int _stepsPerTurn;
 		int _stepsPerMm;
 
-		DRIVER _driver;
+		ZzzStepperDriver *_pDriver;
 
 		/** Callback called at the end of asyncStep or asyncTurn or asyncGoMm or asyncGoMs  */
 		ZzzStepperCallback _endActionCallback;
 		
 		void endAction() {
-			_driver.stop(false);
+			_pDriver->stop(false);
 			_state=STATE_STOP;
 			if (_endActionCallback!=nullptr) {
 				_endActionCallback();
@@ -154,9 +222,7 @@ template <typename DRIVER> class ZzzStepper {
 	public:		
 		/** Stop the stepper motor */
 		void stop() {
-			if (_state!=STATE_STOP) {
-				_driver.stop(true);
-			}
+			_pDriver->stop(true);
 			_state=STATE_STOP;
 		}
 
@@ -185,14 +251,14 @@ template <typename DRIVER> class ZzzStepper {
 						return;
 					}
 				}
-				_driver.nextStep( ((_state & STATE_CW) == 1) );
+				_pDriver->nextStep( ((_state & STATE_CW) == 1) );
 				_lastStepUs=micros();
 			}
 		}
 
 		/** Set rotation speed per minute (RPM). Driver will adjust to best suitable RPM to avoid motor damage. */
 		void setSpeed(unsigned int rpm) {
-			_stepTimeUs=_driver.getStepUs(rpm, _stepsPerTurn);
+			_stepTimeUs=_pDriver->getStepUs(rpm, _stepsPerTurn);
 		}
 		
 		/** Set number of steps to travel 1mm (useful in combination with goMm()) */
@@ -241,7 +307,8 @@ template <typename DRIVER> class ZzzStepper {
 		}
 
 		/** Constructor */
-		ZzzStepper(int stepsPerTurn, int rpm=15, int stepsPerMm=0) {
+		ZzzStepper(ZzzStepperDriver &driver, int stepsPerTurn, int rpm=15, int stepsPerMm=0) {
+			_pDriver=&driver;
 			_state=STATE_STOP;
 			_stepsPerTurn=stepsPerTurn;
 			if (stepsPerMm<=0) {
