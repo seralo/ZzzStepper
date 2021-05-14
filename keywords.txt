@@ -16,8 +16,9 @@ go	KEYWORD2
 step	KEYWORD2
 turn	KEYWORD2
 goMs	KEYWORD2
-goMm	KEYWORD2
+travelMm	KEYWORD2
 setSpeed	KEYWORD2
+isRunning	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
