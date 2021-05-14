@@ -79,7 +79,6 @@ template <int PIN1, int PIN2, int PIN3, int PIN4, unsigned long MIN_US=800, unsi
 			pinMode(PIN4, OUTPUT);
 		}
 
-		/** Return the step duration in microseconds to achieve given RPM. Return closest value to avoid motor damage. */
 		virtual unsigned long getStepUs(unsigned int rpm, int stepsPerTurn) const override {
 			//1 min = 60 s per 1000 ms per 1000 us
 			unsigned long d = (60 * 1000 * 1000) / (stepsPerTurn * rpm);
@@ -92,7 +91,6 @@ template <int PIN1, int PIN2, int PIN3, int PIN4, unsigned long MIN_US=800, unsi
 			return d;
 		}
 		
-		/** Send stop command to stepper */
 		virtual bool stop(bool force=false) override {
 			if (force) {
 				digitalWrite(PIN1, 0);
@@ -103,7 +101,6 @@ template <int PIN1, int PIN2, int PIN3, int PIN4, unsigned long MIN_US=800, unsi
 			return true;
 		}
 
-		/** Ask stepper to go next step or previous step depending on clockwise */
 		virtual bool nextStep(bool cw) override {
 			uint8_t stepState;
 			stepState=_steps.nextStep( cw );
@@ -133,7 +130,6 @@ template <typename WIRE, uint8_t ADDRESS=ZZZ_DEFAULT_PCF8574_ADDRESS, unsigned l
 			}
 		}
 
-		/** Return the step duration in microseconds to achieve given RPM. Return closest value to avoid motor damage. */
 		virtual unsigned long getStepUs(unsigned int rpm, int stepsPerTurn) const override {
 			//1 min = 60 s per 1000 ms per 1000 us
 			unsigned long d = (60 * 1000 * 1000) / (stepsPerTurn * rpm);
@@ -146,7 +142,6 @@ template <typename WIRE, uint8_t ADDRESS=ZZZ_DEFAULT_PCF8574_ADDRESS, unsigned l
 			return d;
 		}
 		
-		/** Send stop command to stepper */
 		virtual bool stop(bool force=false) override {
 			if (force) {
 				_pWire->beginTransmission(ADDRESS);
@@ -158,7 +153,6 @@ template <typename WIRE, uint8_t ADDRESS=ZZZ_DEFAULT_PCF8574_ADDRESS, unsigned l
 			return true;
 		}
 
-		/** Ask stepper to go next step or previous step depending on clockwise */
 		virtual bool nextStep(bool cw) override {
 			uint8_t stepState;
 
@@ -173,9 +167,8 @@ template <typename WIRE, uint8_t ADDRESS=ZZZ_DEFAULT_PCF8574_ADDRESS, unsigned l
 };
 
 
-
 /**
- * Template class to manage a stepper motor. The template need a Driver parameter to control the stepper.
+ * Class to manage a stepper motor. The class need a Driver parameter to control the stepper.
  * The driver class must implement stop(bool force), nextStep(bool cw) and getStepUs(rpm, stepsPerTurn).
  */
 class ZzzStepper {
@@ -197,9 +190,9 @@ class ZzzStepper {
 		unsigned long _stepTimeUs;
 		unsigned long _lastStepUs;
 
-		/** Counter for asyncStep or asyncTurn or asyncGoMm valid when state has STATE_GO_STEPS flag set */
+		/** Counter for step() or turn() or travelMm() valid when state has STATE_GO_STEPS flag set */
 		unsigned long _remainingSteps;
-		/** Timer for asyncGoMs (2 values to make it overflow proof) */
+		/** Timer for goMs() (2 values to make it overflow proof) */
 		unsigned long _timerStartMs;
 		unsigned long _timerDurationMs;
 		
@@ -208,7 +201,7 @@ class ZzzStepper {
 
 		ZzzStepperDriver *_pDriver;
 
-		/** Callback called at the end of asyncStep or asyncTurn or asyncGoMm or asyncGoMs  */
+		/** Callback called at the end of step() or turn() or travelMm() or goMs() */
 		ZzzStepperCallback _endActionCallback;
 		
 		void endAction() {

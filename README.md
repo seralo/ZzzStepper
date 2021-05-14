@@ -9,7 +9,7 @@ The library consist of a single header file (ZzzStepper.h) containing template c
 
 ```cpp
 
-ZzzStepper <DRIVER> stepper(stepsPerTurn,rpm=60,stepsPerMm=0); //Constructor need a driver class as template param
+ZzzStepper stepper(driver, stepsPerTurn,rpm=60,stepsPerMm=0); //Constructor need a driver class as template param
 
 
 ```
@@ -46,7 +46,8 @@ bool isRunning();               // Is the stepper motor running (not stopped)
 
 //ULN2003 use 4 pins connected here to PIN 16, PIN 17, PIN 25, PIN 26
 //28BYJ-48 stepper motor needs 4096 steps to make one full turn in Half step mode
-ZzzStepper < ZzzStepperDriver4Pins<16,17,25,26> > stepper(4096);
+ZzzStepperDriver4Pins<16,17,25,26> driver;
+ZzzStepper stepper(driver, 4096);
 
 void setup()
 {
