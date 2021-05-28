@@ -230,7 +230,7 @@ class ZzzStepper {
 				return; //nothing to do
 			}
 			//check elapsed time (overflow proof)
-			if (micros() - _lastStepUs > _stepTimeUs) {
+			if (micros() - _lastStepUs >= _stepTimeUs) {
 				if ((_state & STATE_GO_STEPS)==STATE_GO_STEPS) {
 					if (_remainingSteps==0) {
 						endAction();
